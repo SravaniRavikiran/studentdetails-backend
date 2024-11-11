@@ -405,27 +405,13 @@ app.get('/student/:rollNo', async (req, res) => {
 app.use('/files', express.static("files"));
 
 const corsOptions = {
-  origin: 'http://localhost:3000', // Your frontend's origin
+  origin: 'https://cuddly-broccoli-694v6g9974p7h5gqq-3000.app.github.dev', // Your frontend's origin
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(express.json());
 
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'Admin@123',
-  database: 'studentprofile'
-});
-
-db.connect(err => {
-  if (err) {
-    console.error('Error connecting to MySQL:', err);
-    throw err;
-  }
-  console.log('MySQL connected');
-});
 
 app.post('/signup', (req, res) => {
   const { fname, lname, email, rollno, pwd, role } = req.body;
@@ -463,64 +449,60 @@ app.post('/login', (req, res) => {
 });
 
 
-// Schema for grades
+// Define Grade schema
 const GradeSchema = new mongoose.Schema({
- 
-  subjects: {
-      type: Map, // Map of subject codes and grades
-      of: String
-  },
-  sgpa:Number,
-  semester:String,
   rollNo: String,
-  branch:String,
-  batch:String,
+  sname: String,
+  batch: String,
+  branch: String,
+  sgpa: { type: Number, default: null },
+  semester: String,
+  subjects: {
+    type: Map,  // Store subject codes and grades as key-value pairs
+    of: String
+  }
 });
 
 const Grade = mongoose.model('Grade', GradeSchema);
 
-// API to upload grade data
+// Route to upload grades data
 app.post('/upload-grades', async (req, res) => {
   try {
-      const { gradesData } = req.body;
+    const { gradesData } = req.body;
 
-      // Iterate through the grades data and store each roll number and its subjects
-      for (const grade of gradesData) {
-          const { rollNo, batch, branch, subjects, sgpa, semester } = grade;
-          const existingGrade = await Grade.findOne({ rollNo });
+    for (const grade of gradesData) {
+      const { rollNo, sname, batch, branch, subjects, sgpa, semester } = grade;
 
-          
-              // Create a new grade entry only if it doesn't exist
-              const newGrade = new Grade({ rollNo, batch, branch, subjects, sgpa, semester });
-              await newGrade.save();
-         
+      const existingGrade = await Grade.findOne({ rollNo, semester });
+      if (existingGrade) {
+        // Update existing record
+        existingGrade.set({ sname, batch, branch, sgpa, semester, subjects });
+        await existingGrade.save();
+      } else {
+        // Create a new grade entry
+        const newGrade = new Grade({ rollNo, sname, batch, branch, subjects, sgpa, semester });
+        await newGrade.save();
       }
+    }
 
-      res.status(201).send('Grades uploaded successfully');
+    res.status(201).send('Grades uploaded successfully');
   } catch (error) {
-      res.status(500).send('Error uploading grades');
+    console.error('Error uploading grades:', error);
+    res.status(500).send('Error uploading grades');
   }
 });
 
-
-
-
-
-// API to fetch grade data by roll number
-// API to fetch grade data by roll number and semester
+// Route to fetch grade data by roll number and semester
 app.get('/grades', async (req, res) => {
   try {
     const { rollNo, semester } = req.query;
 
-    // Build the query object
-    let query = {};
+    const query = {};
     if (rollNo) query.rollNo = rollNo;
     if (semester) query.semester = semester;
 
-    // Fetch data based on query
     const gradeData = await Grade.find(query);
-
-    if (gradeData.length === 0) {
+    if (!gradeData.length) {
       return res.status(404).send('No grades found for the given criteria');
     }
 
@@ -533,8 +515,8 @@ app.get('/grades', async (req, res) => {
 
 
 
-app.listen(5000, () => {
-  console.log('Server is running on port 5000');
+app.listen(3306, () => {
+  console.log('Server is running on port 3306');
 });
 
 
